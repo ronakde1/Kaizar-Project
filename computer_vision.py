@@ -224,22 +224,39 @@ while True:
 cap.release()
 cv2.destroyAllWindows()
 
-# Launch MATLAB analysis automatically after logging ends.
-project_dir = os.path.dirname(os.path.abspath(__file__))
-analysis_script = "screen_attention_analysis"
-matlab_exe = shutil.which("matlab")
+import os
+import shutil
+import subprocess
+import sys
 
-if matlab_exe:
+
+import os
+import subprocess
+
+# --- Project paths ---
+project_dir = os.path.dirname(os.path.abspath(__file__))  # current script directory
+csv_file = "screen_attention_log.csv"  # relative CSV name
+csv_path = os.path.join(project_dir, csv_file)
+
+# MATLAB script (without .m)
+analysis_script = "screen_attention_analysis"
+
+# --- MATLAB executable ---
+matlab_exe = "/Applications/MATLAB_R2025b.app/bin/matlab"
+
+# --- Launch MATLAB ---
+if os.path.exists(matlab_exe):
     try:
+        # Pass the CSV path as argument to MATLAB script
         subprocess.Popen(
-            [matlab_exe, "-batch", analysis_script],
+            [matlab_exe, "-batch", f"{analysis_script}('{csv_path}')"],
             cwd=project_dir
         )
-        print("MATLAB launched to run screen_attention_analysis.m")
+        print(f"MATLAB launched to run {analysis_script}.m with CSV: {csv_path}")
     except Exception as e:
         print(f"Could not launch MATLAB automatically: {e}")
 else:
     print(
-        "MATLAB executable not found in PATH. "
-        "Add MATLAB to PATH or run screen_attention_analysis.m manually."
+        f"MATLAB executable not found at {matlab_exe}. "
+        "Check the path or install MATLAB."
     )
