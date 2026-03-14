@@ -177,7 +177,7 @@ fig = figure( ...
 
 tl = tiledlayout(fig, 2, 3, 'Padding', 'compact', 'TileSpacing', 'compact');
 
-ax1 = nexttile(tl, [1 2]);
+ax1 = nexttile(tl, 3);
 stairs(ax1, t - t(1), lookFlag, 'LineWidth', 1.4, 'Color', timelineColor);
 xlabel(ax1, 'Elapsed Time (s)', 'FontWeight', 'bold');
 ylabel(ax1, 'Attention State', 'FontWeight', 'bold');
@@ -189,7 +189,7 @@ xlim(ax1, [0 max(t - t(1))]);
 grid(ax1, 'on');
 legend(ax1, 'State', 'Location', 'southoutside');
 
-ax2 = nexttile(tl, 3);
+ax2 = nexttile(tl, [1 2]);
 plot(ax2, cumulativeTimeSec, cumulativeFocusPercent, 'LineWidth', 2.0, 'Color', focusColor);
 hold(ax2, 'on');
 yline(ax2, percentageLooking, '--', sprintf('Final: %.2f%%', percentageLooking), ...
@@ -222,7 +222,7 @@ end
 grid(ax3, 'on');
 
 ax4 = nexttile(tl, 5);
-pie(ax4, [max(lookingTime, 0), max(totalTime - lookingTime, 0)], {'Looking', 'Not Looking'});
+pie(ax4, [max(lookingTime, 0), max(totalTime - lookingTime, 0)]);
 title(ax4, sprintf('Session Split (%.2f%% Focus)', percentageLooking), 'FontWeight', 'bold');
 
 pieObjs = findobj(ax4, 'Type', 'Patch');
@@ -230,14 +230,13 @@ if numel(pieObjs) >= 2
     pieObjs(1).FaceColor = awayColor;
     pieObjs(2).FaceColor = focusColor;
 end
+legend(ax4, {'Looking', 'Not Looking'}, 'Location', 'southoutside');
 
 ax5 = nexttile(tl, 6);
 if isnan(eyesClosedEventCount)
     eyesClosedBarValue = 0;
-    eyesClosedLabel = 'Eyes Closed Events: N/A';
 else
     eyesClosedBarValue = eyesClosedEventCount;
-    eyesClosedLabel = sprintf('Eyes Closed Events: %d', eyesClosedEventCount);
 end
 
 kpiNames = categorical({ ...
@@ -263,26 +262,6 @@ for i = 1:numel(kpiValues)
     text(ax5, kpiValues(i), i, sprintf('  %.2f', kpiValues(i)), ...
         'VerticalAlignment', 'middle', 'FontSize', 9);
 end
-
-summaryLines = {
-    sprintf('Start: %s', string(sessionStart))
-    sprintf('End: %s', string(sessionEnd))
-    sprintf('Total Time: %.2f s | Looking: %.2f s', totalTime, lookingTime)
-    sprintf('Focus: %.2f%% | Away Events/min: %.3f', percentageLooking, eventsPerMinute)
-    sprintf('Away Events (>= %.1f s): %d | %s', awayEventThresholdSec, awayEventCount, eyesClosedLabel)
-    sprintf('Data Quality -> Duplicate: %d | Non-Increasing: %d | Abnormal Gaps: %d', ...
-        duplicateTimestampCount, nonIncreasingTimestampCount, abnormalGapCount)
-};
-
-annotation(fig, 'textbox', [0.06 0.01 0.88 0.07], ...
-    'String', strjoin(summaryLines, '    |    '), ...
-    'FitBoxToText', 'off', ...
-    'HorizontalAlignment', 'left', ...
-    'VerticalAlignment', 'middle', ...
-    'FontName', 'Consolas', ...
-    'FontSize', 9, ...
-    'EdgeColor', [0.75 0.75 0.75], ...
-    'BackgroundColor', [0.98 0.98 0.98]);
 
 set([ax1 ax2 ax3 ax4 ax5], 'FontName', 'Arial', 'FontSize', 10, 'LineWidth', 1.0);
 sgtitle(tl, sprintf('Screen Attention Report | Overall Focus: %.2f%% | Total Time: %.1fs', percentageLooking, totalTime), ...
