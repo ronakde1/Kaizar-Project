@@ -203,19 +203,17 @@ grid(ax2, 'on');
 legend(ax2, 'Cumulative Focus', 'Location', 'northwest');
 
 ax3 = nexttile(tl, 4);
-bar(ax3, minuteStartSec / 60, minutePercent, 0.85, 'FaceColor', minuteColor, 'EdgeColor', 'none');
+minuteElapsedAxis = cumsum(minuteTotalSec) / 60;
+bar(ax3, minuteElapsedAxis, minutePercent, 0.85, 'FaceColor', minuteColor, 'EdgeColor', 'none');
 xlabel(ax3, 'Elapsed Session Time (minutes)', 'FontWeight', 'bold');
 ylabel(ax3, 'Focus Percentage per Minute (%)', 'FontWeight', 'bold');
 title(ax3, 'Minute-by-Minute Focus', 'FontWeight', 'bold');
 ylim(ax3, [0 100]);
-if ~isempty(minuteStartSec)
-    xlim(ax3, [0 max(1, (minuteStartSec(end) / 60) + 1)]);
-    minuteMarks = minuteStartSec / 60;
-    if numel(minuteMarks) > 12
-        tickStep = ceil(numel(minuteMarks) / 12);
-        tickIdx = 1:tickStep:numel(minuteMarks);
-        minuteMarks = minuteMarks(tickIdx);
-    end
+if ~isempty(minuteElapsedAxis)
+    totalMinutes = max(1, ceil(totalTime / 60));
+    xlim(ax3, [0 totalMinutes]);
+    tickStep = max(1, ceil(totalMinutes / 10));
+    minuteMarks = 0:tickStep:totalMinutes;
     xticks(ax3, minuteMarks);
     xticklabels(ax3, compose('%.0f', minuteMarks));
 end
@@ -252,15 +250,24 @@ kpiValues = [ ...
     eyesClosedBarValue, ...
     abnormalGapCount];
 
-barh(ax5, kpiNames, kpiValues, 0.65, 'FaceColor', [0.34 0.47 0.80], 'EdgeColor', 'none');
+metricPositions = 1:numel(kpiValues);
+barh(ax5, metricPositions, kpiValues, 0.65, 'FaceColor', [0.34 0.47 0.80], 'EdgeColor', 'none');
+yticks(ax5, metricPositions);
+yticklabels(ax5, cellstr(kpiNames));
 title(ax5, 'Session Metrics Snapshot', 'FontWeight', 'bold');
 xlabel(ax5, 'Metric Value (seconds or count)', 'FontWeight', 'bold');
 ylabel(ax5, 'Session Metrics', 'FontWeight', 'bold');
 grid(ax5, 'on');
 ax5.YAxis.Direction = 'reverse';
+maxMetricValue = max(kpiValues);
+if maxMetricValue <= 0
+    maxMetricValue = 1;
+end
+xlim(ax5, [0 maxMetricValue * 1.25]);
+labelOffset = maxMetricValue * 0.03;
 for i = 1:numel(kpiValues)
-    text(ax5, kpiValues(i), i, sprintf('  %.2f', kpiValues(i)), ...
-        'VerticalAlignment', 'middle', 'FontSize', 9);
+    text(ax5, kpiValues(i) + labelOffset, metricPositions(i), sprintf('%.2f', kpiValues(i)), ...
+        'VerticalAlignment', 'middle', 'HorizontalAlignment', 'left', 'FontSize', 9);
 end
 
 set([ax1 ax2 ax3 ax4 ax5], 'FontName', 'Arial', 'FontSize', 10, 'LineWidth', 1.0);
