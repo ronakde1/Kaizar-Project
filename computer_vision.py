@@ -49,6 +49,14 @@ predictor = dlib.shape_predictor("shape_predictor_68_face_landmarks.dat")
 
 cap = cv2.VideoCapture(0)
 
+# Running, time-weighted attention metrics for live overlay.
+last_unix_time = None
+prev_looking_at_screen = 0
+total_monitored_time = 0.0
+total_looking_time = 0.0
+display_percent = 0.0
+last_display_update = 0.0
+
 # Create CSV with header if it does not exist
 if not os.path.exists(LOG_FILE):
     with open(LOG_FILE, mode="w", newline="") as f:
@@ -122,9 +130,76 @@ while True:
         cv2.putText(frame, state, (30, 90),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 165, 255), 2)
 
-    # Log one row per frame
+    # Update running time-weighted percentage before logging/display.
     now = datetime.now()
     unix_time = time.time()
+
+    if last_unix_time is not None:
+        dt = unix_time - last_unix_time
+        if dt > 0:
+            total_monitored_time += dt
+            if prev_looking_at_screen:
+                total_looking_time += dt
+
+    if total_monitored_time > 0:
+        live_percent = 100.0 * (total_looking_time / total_monitored_time)
+    else:
+        live_percent = 0.0
+
+    # Refresh displayed percent once per second to keep overlay stable.
+    if (unix_time - last_display_update) >= 1.0:
+        display_percent = live_percent
+        last_display_update = unix_time
+
+    live_text = f"Focus so far: {display_percent:.1f}%"
+    (text_w, text_h), baseline = cv2.getTextSize(
+        live_text,
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.7,
+        2
+    )
+    text_x = max(10, frame.shape[1] - text_w - 20)
+    text_y = 30
+    cv2.rectangle(
+        frame,
+        (text_x - 8, text_y - text_h - 8),
+        (text_x + text_w + 8, text_y + baseline + 8),
+        (0, 0, 0),
+        -1
+    )
+    cv2.putText(
+        frame,
+        live_text,
+        (text_x, text_y),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.7,
+        (255, 255, 255),
+        2
+    )
+
+    # Small progress bar under the percentage text.
+    bar_width = text_w
+    bar_height = 10
+    bar_x1 = text_x
+    bar_y1 = text_y + baseline + 8
+    bar_x2 = bar_x1 + bar_width
+    bar_y2 = bar_y1 + bar_height
+
+    cv2.rectangle(frame, (bar_x1, bar_y1), (bar_x2, bar_y2), (180, 180, 180), 1)
+    fill_width = int(bar_width * max(0.0, min(display_percent, 100.0)) / 100.0)
+    if fill_width > 0:
+        cv2.rectangle(
+            frame,
+            (bar_x1 + 1, bar_y1 + 1),
+            (bar_x1 + fill_width - 1, bar_y2 - 1),
+            (0, 220, 0),
+            -1
+        )
+
+    prev_looking_at_screen = looking_at_screen
+    last_unix_time = unix_time
+
+    # Log one row per frame
 
     with open(LOG_FILE, mode="a", newline="") as f:
         writer = csv.writer(f)
