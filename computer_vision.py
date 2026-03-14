@@ -8,8 +8,35 @@ import os
 import time
 import subprocess
 import shutil
+import tkinter as tk
+from tkinter import simpledialog
+from tkinter import messagebox
 
 # ---------- FUNCTIONS ----------
+def get_study_duration_seconds():
+    root = tk.Tk()
+    root.withdraw()
+    root.attributes("-topmost", True)
+
+    while True:
+        minutes = simpledialog.askfloat(
+            title="Study Timer",
+            prompt="Enter planned study duration (minutes):",
+            minvalue=0.01,
+            parent=root
+        )
+
+        if minutes is None:
+            root.destroy()
+            raise SystemExit("Study duration entry cancelled.")
+
+        if minutes > 0:
+            root.destroy()
+            return minutes * 60.0
+
+        messagebox.showerror("Invalid Input", "Please enter a value greater than 0.", parent=root)
+
+
 def eye_aspect_ratio(eye):
     A = distance.euclidean(eye[1], eye[5])
     B = distance.euclidean(eye[2], eye[4])
@@ -48,6 +75,11 @@ detector = dlib.get_frontal_face_detector()
 predictor = dlib.shape_predictor("shape_predictor_68_face_landmarks.dat")
 
 cap = cv2.VideoCapture(0)
+
+study_duration_sec = get_study_duration_seconds()
+study_start_unix = time.time()
+completion_flash_start = None
+completion_flash_duration_sec = 3.0
 
 # Running, time-weighted attention metrics for live overlay.
 last_unix_time = None
@@ -138,6 +170,8 @@ while True:
     # Update running time-weighted percentage before logging/display.
     now = datetime.now()
     unix_time = time.time()
+    elapsed_study_sec = unix_time - study_start_unix
+    study_complete = elapsed_study_sec >= study_duration_sec
 
     if last_unix_time is not None:
         dt = unix_time - last_unix_time
@@ -201,6 +235,37 @@ while True:
             -1
         )
 
+    remaining_sec = max(0.0, study_duration_sec - elapsed_study_sec)
+    remaining_min = int(remaining_sec // 60)
+    remaining_rem_sec = int(remaining_sec % 60)
+    timer_text = f"Study timer left: {remaining_min:02d}:{remaining_rem_sec:02d}"
+    cv2.putText(
+        frame,
+        timer_text,
+        (30, frame.shape[0] - 25),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.7,
+        (255, 255, 255),
+        2
+    )
+
+    if study_complete and completion_flash_start is None:
+        completion_flash_start = unix_time
+
+    if completion_flash_start is not None and int(unix_time * 2) % 2 == 0:
+        red_overlay = np.zeros_like(frame)
+        red_overlay[:, :] = (0, 0, 255)
+        frame = cv2.addWeighted(red_overlay, 0.35, frame, 0.65, 0)
+        cv2.putText(
+            frame,
+            "STUDY SESSION COMPLETE",
+            (30, frame.shape[0] - 60),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.9,
+            (255, 255, 255),
+            2
+        )
+
     prev_looking_at_screen = looking_at_screen
     last_unix_time = unix_time
 
@@ -218,35 +283,31 @@ while True:
 
     cv2.imshow("Eye Monitor", frame)
 
+    if completion_flash_start is not None and (unix_time - completion_flash_start) >= completion_flash_duration_sec:
+        break
+
     if cv2.waitKey(1) & 0xFF == 27:  # ESC
         break
 
 cap.release()
 cv2.destroyAllWindows()
 
-# --- Project paths ---
-project_dir = os.path.dirname(os.path.abspath(__file__))  # current script directory
-csv_file = "screen_attention_log.csv"
-csv_path = os.path.join(project_dir, csv_file)
-
-# MATLAB script (without .m)
+# Launch MATLAB analysis automatically after logging ends.
+project_dir = os.path.dirname(os.path.abspath(__file__))
 analysis_script = "screen_attention_analysis"
+matlab_exe = shutil.which("matlab")
 
-# --- MATLAB executable ---
-matlab_exe = "/Applications/MATLAB_R2025b.app/bin/matlab"
-
-# --- Launch MATLAB with GUI and run script ---
-if os.path.exists(matlab_exe):
+if matlab_exe:
     try:
-        # -desktop opens GUI, -r runs the command
-        # Wrap in try/catch so MATLAB stays open even if there's an error
-        matlab_command = f"try, {analysis_script}('{csv_path}'); catch e, disp(e.message); end;"
         subprocess.Popen(
-            [matlab_exe, "-desktop", "-r", matlab_command],
+            [matlab_exe, "-batch", analysis_script],
             cwd=project_dir
         )
-        print(f"MATLAB launched to run {analysis_script}.m with CSV: {csv_path}")
+        print("MATLAB launched to run screen_attention_analysis.m")
     except Exception as e:
         print(f"Could not launch MATLAB automatically: {e}")
 else:
-    print(f"MATLAB executable not found at {matlab_exe}. Check the path or install MATLAB.")
+    print(
+        "MATLAB executable not found in PATH. "
+        "Add MATLAB to PATH or run screen_attention_analysis.m manually."
+    )
