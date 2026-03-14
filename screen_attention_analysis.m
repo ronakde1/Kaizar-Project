@@ -164,26 +164,84 @@ summaryTable = table( ...
 writetable(summaryTable, 'screen_attention_summary.csv');
 writetable(minuteTable, 'screen_attention_minute_trend.csv');
 
-fig = figure('Color', 'w', 'Name', 'Screen Attention Report');
-tiledlayout(2, 1, 'Padding', 'compact', 'TileSpacing', 'compact');
+fig = figure( ...
+    'Color', 'w', ...
+    'Name', 'Screen Attention Report', ...
+    'NumberTitle', 'off', ...
+    'Position', [100 80 1200 760]);
 
-nexttile;
-stairs(t - t(1), lookFlag, 'LineWidth', 1.2, 'Color', [0.0 0.45 0.74]);
-xlabel('Time (s)');
-ylabel('Looking at screen');
-title('State Timeline');
-ylim([-0.1 1.1]);
-grid on;
+tl = tiledlayout(fig, 2, 2, 'Padding', 'compact', 'TileSpacing', 'compact');
 
-nexttile;
-plot(cumulativeTimeSec, cumulativeFocusPercent, 'LineWidth', 1.5, 'Color', [0.2 0.65 0.35]);
-xlabel('Time (s)');
-ylabel('Cumulative Focus (%)');
-title('Cumulative Focus Percentage Over Time');
-ylim([0 100]);
-grid on;
+ax1 = nexttile(tl, 1);
+stairs(ax1, t - t(1), lookFlag, 'LineWidth', 1.3, 'Color', [0.0 0.45 0.74]);
+xlabel(ax1, 'Elapsed Time (s)', 'FontWeight', 'bold');
+ylabel(ax1, 'Attention State', 'FontWeight', 'bold');
+title(ax1, 'State Timeline', 'FontWeight', 'bold');
+ylim(ax1, [-0.1 1.1]);
+yticks(ax1, [0 1]);
+yticklabels(ax1, {'Not Looking', 'Looking'});
+xlim(ax1, [0 max(t - t(1))]);
+grid(ax1, 'on');
+legend(ax1, 'State', 'Location', 'southoutside');
 
-sgtitle(sprintf('Overall Focus: %.2f%% | Total Time: %.1fs', percentageLooking, totalTime));
+ax2 = nexttile(tl, 2);
+plot(ax2, cumulativeTimeSec, cumulativeFocusPercent, 'LineWidth', 1.8, 'Color', [0.2 0.65 0.35]);
+hold(ax2, 'on');
+yline(ax2, percentageLooking, '--', sprintf('Final: %.2f%%', percentageLooking), ...
+    'Color', [0.2 0.2 0.2], 'LabelHorizontalAlignment', 'left');
+xlabel(ax2, 'Elapsed Time (s)', 'FontWeight', 'bold');
+ylabel(ax2, 'Cumulative Focus (%)', 'FontWeight', 'bold');
+title(ax2, 'Cumulative Focus Percentage Over Time', 'FontWeight', 'bold');
+ylim(ax2, [0 100]);
+xlim(ax2, [0 max(cumulativeTimeSec)]);
+grid(ax2, 'on');
+legend(ax2, 'Cumulative Focus', 'Location', 'southoutside');
+
+ax3 = nexttile(tl, 3);
+bar(ax3, minuteStartSec / 60, minutePercent, 0.85, 'FaceColor', [0.93 0.56 0.18], 'EdgeColor', 'none');
+xlabel(ax3, 'Elapsed Time (minutes)', 'FontWeight', 'bold');
+ylabel(ax3, 'Focus in Minute Bin (%)', 'FontWeight', 'bold');
+title(ax3, 'Minute-by-Minute Focus', 'FontWeight', 'bold');
+ylim(ax3, [0 100]);
+if ~isempty(minuteStartSec)
+    xlim(ax3, [0 max(1, (minuteStartSec(end) / 60) + 1)]);
+end
+grid(ax3, 'on');
+
+ax4 = nexttile(tl, 4);
+axis(ax4, 'off');
+if isnan(eyesClosedEventCount)
+    eyesClosedText = 'N/A (gaze_label missing)';
+else
+    eyesClosedText = sprintf('%d', eyesClosedEventCount);
+end
+
+summaryLines = {
+    'Session Summary'
+    sprintf('Start Time: %s', string(sessionStart))
+    sprintf('End Time: %s', string(sessionEnd))
+    sprintf('Total Monitored Time: %.2f s', totalTime)
+    sprintf('Looking Time: %.2f s', lookingTime)
+    sprintf('Overall Focus: %.2f %%', percentageLooking)
+    sprintf('Longest Focus Streak: %.2f s', longestFocusStreakSec)
+    sprintf('Longest Away Streak: %.2f s', longestAwayStreakSec)
+    sprintf('Away Events (>= %.1f s): %d', awayEventThresholdSec, awayEventCount)
+    sprintf('Away Events / Minute: %.3f', eventsPerMinute)
+    sprintf('Eyes Closed Events (>= %.1f s): %s', eyesClosedEventThresholdSec, eyesClosedText)
+    sprintf('Duplicate Timestamps: %d', duplicateTimestampCount)
+    sprintf('Non-Increasing Timestamps: %d', nonIncreasingTimestampCount)
+    sprintf('Abnormal Gaps (> %.2f s): %d', abnormalGapThreshold, abnormalGapCount)
+};
+
+text(ax4, 0.02, 0.98, summaryLines, ...
+    'Units', 'normalized', ...
+    'VerticalAlignment', 'top', ...
+    'FontName', 'Consolas', ...
+    'FontSize', 10);
+
+set([ax1 ax2 ax3], 'FontName', 'Arial', 'FontSize', 10, 'LineWidth', 1.0);
+sgtitle(tl, sprintf('Screen Attention Report | Overall Focus: %.2f%% | Total Time: %.1fs', percentageLooking, totalTime), ...
+    'FontWeight', 'bold');
 
 exportgraphics(fig, 'screen_attention_report.png', 'Resolution', 200);
 try
