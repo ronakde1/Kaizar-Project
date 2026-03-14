@@ -3,6 +3,9 @@ import dlib
 import numpy as np
 from scipy.spatial import distance
 from datetime import datetime
+import csv
+import os
+import time
 
 # ---------- FUNCTIONS ----------
 def eye_aspect_ratio(eye):
@@ -13,30 +16,42 @@ def eye_aspect_ratio(eye):
     return ear
 
 def get_eye_ratio(eye, gray):
-    # Extract eye region
     x_min = min([p[0] for p in eye])
     x_max = max([p[0] for p in eye])
     y_min = min([p[1] for p in eye])
     y_max = max([p[1] for p in eye])
 
     eye_img = gray[y_min:y_max, x_min:x_max]
+    if eye_img.size == 0:
+        return 0.5
+
     _, thresh = cv2.threshold(eye_img, 70, 255, cv2.THRESH_BINARY_INV)
     moments = cv2.moments(thresh)
     if moments['m00'] == 0:
-        return 0.5  # Default to center
+        return 0.5
+
     cx = moments['m10'] / moments['m00']
-    ratio = cx / (x_max - x_min)
-    return ratio  # 0: looking left, 1: looking right, 0.5: center
+    width = max((x_max - x_min), 1)
+    ratio = cx / width
+    return ratio
 
 # ---------- INIT ----------
 EAR_THRESHOLD = 0.21
 GAZE_LEFT_THRESHOLD = 0.35
 GAZE_RIGHT_THRESHOLD = 0.65
 
+LOG_FILE = "screen_attention_log.csv"
+
 detector = dlib.get_frontal_face_detector()
 predictor = dlib.shape_predictor("shape_predictor_68_face_landmarks.dat")
 
 cap = cv2.VideoCapture(0)
+
+# Create CSV with header if it does not exist
+if not os.path.exists(LOG_FILE):
+    with open(LOG_FILE, mode="w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["timestamp", "unix_time", "state", "looking_at_screen"])
 
 while True:
     ret, frame = cap.read()
@@ -45,13 +60,19 @@ while True:
 
     frame = cv2.flip(frame, 1)
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    
+
+    state = "NOT_LOOKING_AT_SCREEN"
+    looking_at_screen = 0
+    gaze_label = "NO FACE DETECTED"
+
     faces = detector(gray)
-    for face in faces:
+
+    if len(faces) > 0:
+        # Use the first detected face
+        face = faces[0]
         shape = predictor(gray, face)
         shape = [(p.x, p.y) for p in shape.parts()]
 
-        # Eyes
         left_eye = [shape[i] for i in range(36, 42)]
         right_eye = [shape[i] for i in range(42, 48)]
 
@@ -63,33 +84,58 @@ while True:
         right_ratio = get_eye_ratio(right_eye, gray)
         gaze = (left_ratio + right_ratio) / 2.0
 
-        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        
-        # Check eyes closed
         if ear < EAR_THRESHOLD:
-            print(f"{now} - EYES CLOSED")
-            cv2.putText(frame, "EYES CLOSED", (30,50),
-                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 2)
-        # Check eyes looking away
-        elif gaze < GAZE_LEFT_THRESHOLD:
-            print(f"{now} - LOOKING LEFT")
-            cv2.putText(frame, "LOOKING LEFT", (30,50),
-                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 2)
-        elif gaze > GAZE_RIGHT_THRESHOLD:
-            print(f"{now} - LOOKING RIGHT")
-            cv2.putText(frame, "LOOKING RIGHT", (30,50),
-                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 2)
-        else:
-            cv2.putText(frame, "LOOKING CENTER", (30,50),
-                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,0), 2)
+            gaze_label = "EYES CLOSED"
+            looking_at_screen = 0
+            state = "NOT_LOOKING_AT_SCREEN"
 
-        # Draw eyes
+        elif gaze < GAZE_LEFT_THRESHOLD:
+            gaze_label = "LOOKING LEFT"
+            looking_at_screen = 0
+            state = "NOT_LOOKING_AT_SCREEN"
+
+        elif gaze > GAZE_RIGHT_THRESHOLD:
+            gaze_label = "LOOKING RIGHT"
+            looking_at_screen = 0
+            state = "NOT_LOOKING_AT_SCREEN"
+
+        else:
+            gaze_label = "LOOKING CENTER"
+            looking_at_screen = 1
+            state = "LOOKING_AT_SCREEN"
+
+        color = (0, 255, 0) if looking_at_screen else (0, 0, 255)
+        cv2.putText(frame, gaze_label, (30, 50),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
+        cv2.putText(frame, state, (30, 90),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 2)
+
         for eye in [left_eye, right_eye]:
             pts = np.array(eye, np.int32)
-            cv2.polylines(frame, [pts], True, (0,255,0), 1)
+            cv2.polylines(frame, [pts], True, (0, 255, 0), 1)
+
+    else:
+        cv2.putText(frame, gaze_label, (30, 50),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 165, 255), 2)
+        cv2.putText(frame, state, (30, 90),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 165, 255), 2)
+
+    # Log one row per frame
+    now = datetime.now()
+    unix_time = time.time()
+
+    with open(LOG_FILE, mode="a", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow([
+            now.strftime("%Y-%m-%d %H:%M:%S.%f"),
+            unix_time,
+            state,
+            looking_at_screen
+        ])
 
     cv2.imshow("Eye Monitor", frame)
-    if cv2.waitKey(1) & 0xFF == 27:  # ESC to exit
+
+    if cv2.waitKey(1) & 0xFF == 27:  # ESC
         break
 
 cap.release()
