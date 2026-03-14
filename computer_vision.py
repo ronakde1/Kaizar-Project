@@ -6,6 +6,8 @@ from datetime import datetime
 import csv
 import os
 import time
+import subprocess
+import shutil
 
 # ---------- FUNCTIONS ----------
 def eye_aspect_ratio(eye):
@@ -140,3 +142,23 @@ while True:
 
 cap.release()
 cv2.destroyAllWindows()
+
+# Launch MATLAB analysis automatically after logging ends.
+project_dir = os.path.dirname(os.path.abspath(__file__))
+analysis_script = "screen_attention_analysis"
+matlab_exe = shutil.which("matlab")
+
+if matlab_exe:
+    try:
+        subprocess.Popen(
+            [matlab_exe, "-batch", analysis_script],
+            cwd=project_dir
+        )
+        print("MATLAB launched to run screen_attention_analysis.m")
+    except Exception as e:
+        print(f"Could not launch MATLAB automatically: {e}")
+else:
+    print(
+        "MATLAB executable not found in PATH. "
+        "Add MATLAB to PATH or run screen_attention_analysis.m manually."
+    )
