@@ -57,11 +57,16 @@ total_looking_time = 0.0
 display_percent = 0.0
 last_display_update = 0.0
 
-# Create CSV with header if it does not exist
-if not os.path.exists(LOG_FILE):
-    with open(LOG_FILE, mode="w", newline="") as f:
-        writer = csv.writer(f)
-        writer.writerow(["timestamp", "unix_time", "state", "looking_at_screen"])
+# Start a fresh CSV each run so columns stay consistent per session.
+with open(LOG_FILE, mode="w", newline="") as f:
+    writer = csv.writer(f)
+    writer.writerow([
+        "timestamp",
+        "unix_time",
+        "state",
+        "gaze_label",
+        "looking_at_screen"
+    ])
 
 while True:
     ret, frame = cap.read()
@@ -207,6 +212,7 @@ while True:
             now.strftime("%Y-%m-%d %H:%M:%S.%f"),
             unix_time,
             state,
+            gaze_label,
             looking_at_screen
         ])
 
