@@ -177,19 +177,7 @@ fig = figure( ...
 
 tl = tiledlayout(fig, 2, 3, 'Padding', 'compact', 'TileSpacing', 'compact');
 
-ax1 = nexttile(tl, 3);
-stairs(ax1, t - t(1), lookFlag, 'LineWidth', 1.4, 'Color', timelineColor);
-xlabel(ax1, 'Elapsed Time (s)', 'FontWeight', 'bold');
-ylabel(ax1, 'Attention State', 'FontWeight', 'bold');
-title(ax1, 'State Timeline', 'FontWeight', 'bold');
-ylim(ax1, [-0.1 1.1]);
-yticks(ax1, [0 1]);
-yticklabels(ax1, {'Not Looking', 'Looking'});
-xlim(ax1, [0 max(t - t(1))]);
-grid(ax1, 'on');
-legend(ax1, 'State', 'Location', 'southoutside');
-
-ax2 = nexttile(tl, [1 2]);
+ax2 = nexttile(tl, [1 3]);
 plot(ax2, cumulativeTimeSec, cumulativeFocusPercent, 'LineWidth', 2.0, 'Color', focusColor);
 hold(ax2, 'on');
 yline(ax2, percentageLooking, '--', sprintf('Final: %.2f%%', percentageLooking), ...
@@ -270,7 +258,7 @@ for i = 1:numel(kpiValues)
         'VerticalAlignment', 'middle', 'HorizontalAlignment', 'left', 'FontSize', 9);
 end
 
-set([ax1 ax2 ax3 ax4 ax5], 'FontName', 'Arial', 'FontSize', 10, 'LineWidth', 1.0);
+set([ax2 ax3 ax4 ax5], 'FontName', 'Arial', 'FontSize', 10, 'LineWidth', 1.0);
 sgtitle(tl, sprintf('Screen Attention Report | Overall Focus: %.2f%% | Total Time: %.1fs', percentageLooking, totalTime), ...
     'FontWeight', 'bold', 'FontSize', 14);
 
