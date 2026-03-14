@@ -164,16 +164,21 @@ summaryTable = table( ...
 writetable(summaryTable, 'screen_attention_summary.csv');
 writetable(minuteTable, 'screen_attention_minute_trend.csv');
 
+focusColor = [0.18 0.68 0.40];
+awayColor = [0.85 0.33 0.10];
+timelineColor = [0.00 0.45 0.74];
+minuteColor = [0.93 0.56 0.18];
+
 fig = figure( ...
     'Color', 'w', ...
     'Name', 'Screen Attention Report', ...
     'NumberTitle', 'off', ...
-    'Position', [100 80 1200 760]);
+    'Position', [80 50 1360 820]);
 
-tl = tiledlayout(fig, 2, 2, 'Padding', 'compact', 'TileSpacing', 'compact');
+tl = tiledlayout(fig, 2, 3, 'Padding', 'compact', 'TileSpacing', 'compact');
 
-ax1 = nexttile(tl, 1);
-stairs(ax1, t - t(1), lookFlag, 'LineWidth', 1.3, 'Color', [0.0 0.45 0.74]);
+ax1 = nexttile(tl, [1 2]);
+stairs(ax1, t - t(1), lookFlag, 'LineWidth', 1.4, 'Color', timelineColor);
 xlabel(ax1, 'Elapsed Time (s)', 'FontWeight', 'bold');
 ylabel(ax1, 'Attention State', 'FontWeight', 'bold');
 title(ax1, 'State Timeline', 'FontWeight', 'bold');
@@ -184,21 +189,21 @@ xlim(ax1, [0 max(t - t(1))]);
 grid(ax1, 'on');
 legend(ax1, 'State', 'Location', 'southoutside');
 
-ax2 = nexttile(tl, 2);
-plot(ax2, cumulativeTimeSec, cumulativeFocusPercent, 'LineWidth', 1.8, 'Color', [0.2 0.65 0.35]);
+ax2 = nexttile(tl, 3);
+plot(ax2, cumulativeTimeSec, cumulativeFocusPercent, 'LineWidth', 2.0, 'Color', focusColor);
 hold(ax2, 'on');
 yline(ax2, percentageLooking, '--', sprintf('Final: %.2f%%', percentageLooking), ...
     'Color', [0.2 0.2 0.2], 'LabelHorizontalAlignment', 'left');
 xlabel(ax2, 'Elapsed Time (s)', 'FontWeight', 'bold');
 ylabel(ax2, 'Cumulative Focus (%)', 'FontWeight', 'bold');
-title(ax2, 'Cumulative Focus Percentage Over Time', 'FontWeight', 'bold');
+title(ax2, 'Cumulative Focus Trend', 'FontWeight', 'bold');
 ylim(ax2, [0 100]);
 xlim(ax2, [0 max(cumulativeTimeSec)]);
 grid(ax2, 'on');
-legend(ax2, 'Cumulative Focus', 'Location', 'southoutside');
+legend(ax2, 'Cumulative Focus', 'Location', 'northwest');
 
-ax3 = nexttile(tl, 3);
-bar(ax3, minuteStartSec / 60, minutePercent, 0.85, 'FaceColor', [0.93 0.56 0.18], 'EdgeColor', 'none');
+ax3 = nexttile(tl, 4);
+bar(ax3, minuteStartSec / 60, minutePercent, 0.85, 'FaceColor', minuteColor, 'EdgeColor', 'none');
 xlabel(ax3, 'Elapsed Time (minutes)', 'FontWeight', 'bold');
 ylabel(ax3, 'Focus in Minute Bin (%)', 'FontWeight', 'bold');
 title(ax3, 'Minute-by-Minute Focus', 'FontWeight', 'bold');
@@ -208,40 +213,65 @@ if ~isempty(minuteStartSec)
 end
 grid(ax3, 'on');
 
-ax4 = nexttile(tl, 4);
-axis(ax4, 'off');
-if isnan(eyesClosedEventCount)
-    eyesClosedText = 'N/A (gaze_label missing)';
-else
-    eyesClosedText = sprintf('%d', eyesClosedEventCount);
+ax4 = nexttile(tl, 5);
+pie(ax4, [max(lookingTime, 0), max(totalTime - lookingTime, 0)], {'Looking', 'Not Looking'});
+title(ax4, sprintf('Session Split (%.2f%% Focus)', percentageLooking), 'FontWeight', 'bold');
+
+pieObjs = findobj(ax4, 'Type', 'Patch');
+if numel(pieObjs) >= 2
+    pieObjs(1).FaceColor = awayColor;
+    pieObjs(2).FaceColor = focusColor;
 end
 
+ax5 = nexttile(tl, 6);
+if isnan(eyesClosedEventCount)
+    eyesClosedBarValue = 0;
+    eyesClosedLabel = 'Eyes Closed Events: N/A';
+else
+    eyesClosedBarValue = eyesClosedEventCount;
+    eyesClosedLabel = sprintf('Eyes Closed Events: %d', eyesClosedEventCount);
+end
+
+kpiNames = categorical({ ...
+    'Longest Focus (s)', ...
+    'Longest Away (s)', ...
+    'Away Events', ...
+    'Eyes Closed Events', ...
+    'Abnormal Gaps'});
+kpiValues = [ ...
+    longestFocusStreakSec, ...
+    longestAwayStreakSec, ...
+    awayEventCount, ...
+    eyesClosedBarValue, ...
+    abnormalGapCount];
+
+barh(ax5, kpiNames, kpiValues, 0.65, 'FaceColor', [0.34 0.47 0.80], 'EdgeColor', 'none');
+title(ax5, 'Session KPI Snapshot', 'FontWeight', 'bold');
+xlabel(ax5, 'Value');
+grid(ax5, 'on');
+ax5.YAxis.Direction = 'reverse';
+
 summaryLines = {
-    'Session Summary'
-    sprintf('Start Time: %s', string(sessionStart))
-    sprintf('End Time: %s', string(sessionEnd))
-    sprintf('Total Monitored Time: %.2f s', totalTime)
-    sprintf('Looking Time: %.2f s', lookingTime)
-    sprintf('Overall Focus: %.2f %%', percentageLooking)
-    sprintf('Longest Focus Streak: %.2f s', longestFocusStreakSec)
-    sprintf('Longest Away Streak: %.2f s', longestAwayStreakSec)
+    sprintf('Start: %s', string(sessionStart))
+    sprintf('End: %s', string(sessionEnd))
+    sprintf('Total Time: %.2f s | Looking: %.2f s', totalTime, lookingTime)
+    sprintf('Focus: %.2f%% | Away Events/min: %.3f', percentageLooking, eventsPerMinute)
     sprintf('Away Events (>= %.1f s): %d', awayEventThresholdSec, awayEventCount)
-    sprintf('Away Events / Minute: %.3f', eventsPerMinute)
-    sprintf('Eyes Closed Events (>= %.1f s): %s', eyesClosedEventThresholdSec, eyesClosedText)
+    sprintf('%s', eyesClosedLabel)
     sprintf('Duplicate Timestamps: %d', duplicateTimestampCount)
     sprintf('Non-Increasing Timestamps: %d', nonIncreasingTimestampCount)
     sprintf('Abnormal Gaps (> %.2f s): %d', abnormalGapThreshold, abnormalGapCount)
 };
 
-text(ax4, 0.02, 0.98, summaryLines, ...
+text(ax5, 0.02, -0.28, summaryLines, ...
     'Units', 'normalized', ...
-    'VerticalAlignment', 'top', ...
+    'VerticalAlignment', 'bottom', ...
     'FontName', 'Consolas', ...
-    'FontSize', 10);
+    'FontSize', 9);
 
-set([ax1 ax2 ax3], 'FontName', 'Arial', 'FontSize', 10, 'LineWidth', 1.0);
+set([ax1 ax2 ax3 ax4 ax5], 'FontName', 'Arial', 'FontSize', 10, 'LineWidth', 1.0);
 sgtitle(tl, sprintf('Screen Attention Report | Overall Focus: %.2f%% | Total Time: %.1fs', percentageLooking, totalTime), ...
-    'FontWeight', 'bold');
+    'FontWeight', 'bold', 'FontSize', 14);
 
 exportgraphics(fig, 'screen_attention_report.png', 'Resolution', 200);
 try
