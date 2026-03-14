@@ -204,12 +204,20 @@ legend(ax2, 'Cumulative Focus', 'Location', 'northwest');
 
 ax3 = nexttile(tl, 4);
 bar(ax3, minuteStartSec / 60, minutePercent, 0.85, 'FaceColor', minuteColor, 'EdgeColor', 'none');
-xlabel(ax3, 'Elapsed Time (minutes)', 'FontWeight', 'bold');
-ylabel(ax3, 'Focus in Minute Bin (%)', 'FontWeight', 'bold');
+xlabel(ax3, 'Elapsed Session Time (minutes)', 'FontWeight', 'bold');
+ylabel(ax3, 'Focus Percentage per Minute (%)', 'FontWeight', 'bold');
 title(ax3, 'Minute-by-Minute Focus', 'FontWeight', 'bold');
 ylim(ax3, [0 100]);
 if ~isempty(minuteStartSec)
     xlim(ax3, [0 max(1, (minuteStartSec(end) / 60) + 1)]);
+    minuteMarks = minuteStartSec / 60;
+    if numel(minuteMarks) > 12
+        tickStep = ceil(numel(minuteMarks) / 12);
+        tickIdx = 1:tickStep:numel(minuteMarks);
+        minuteMarks = minuteMarks(tickIdx);
+    end
+    xticks(ax3, minuteMarks);
+    xticklabels(ax3, compose('%.0f', minuteMarks));
 end
 grid(ax3, 'on');
 
@@ -246,28 +254,35 @@ kpiValues = [ ...
     abnormalGapCount];
 
 barh(ax5, kpiNames, kpiValues, 0.65, 'FaceColor', [0.34 0.47 0.80], 'EdgeColor', 'none');
-title(ax5, 'Session KPI Snapshot', 'FontWeight', 'bold');
-xlabel(ax5, 'Value');
+title(ax5, 'Session Metrics Snapshot', 'FontWeight', 'bold');
+xlabel(ax5, 'Metric Value (seconds or count)', 'FontWeight', 'bold');
+ylabel(ax5, 'Session Metrics', 'FontWeight', 'bold');
 grid(ax5, 'on');
 ax5.YAxis.Direction = 'reverse';
+for i = 1:numel(kpiValues)
+    text(ax5, kpiValues(i), i, sprintf('  %.2f', kpiValues(i)), ...
+        'VerticalAlignment', 'middle', 'FontSize', 9);
+end
 
 summaryLines = {
     sprintf('Start: %s', string(sessionStart))
     sprintf('End: %s', string(sessionEnd))
     sprintf('Total Time: %.2f s | Looking: %.2f s', totalTime, lookingTime)
     sprintf('Focus: %.2f%% | Away Events/min: %.3f', percentageLooking, eventsPerMinute)
-    sprintf('Away Events (>= %.1f s): %d', awayEventThresholdSec, awayEventCount)
-    sprintf('%s', eyesClosedLabel)
-    sprintf('Duplicate Timestamps: %d', duplicateTimestampCount)
-    sprintf('Non-Increasing Timestamps: %d', nonIncreasingTimestampCount)
-    sprintf('Abnormal Gaps (> %.2f s): %d', abnormalGapThreshold, abnormalGapCount)
+    sprintf('Away Events (>= %.1f s): %d | %s', awayEventThresholdSec, awayEventCount, eyesClosedLabel)
+    sprintf('Data Quality -> Duplicate: %d | Non-Increasing: %d | Abnormal Gaps: %d', ...
+        duplicateTimestampCount, nonIncreasingTimestampCount, abnormalGapCount)
 };
 
-text(ax5, 0.02, -0.28, summaryLines, ...
-    'Units', 'normalized', ...
-    'VerticalAlignment', 'bottom', ...
+annotation(fig, 'textbox', [0.06 0.01 0.88 0.07], ...
+    'String', strjoin(summaryLines, '    |    '), ...
+    'FitBoxToText', 'off', ...
+    'HorizontalAlignment', 'left', ...
+    'VerticalAlignment', 'middle', ...
     'FontName', 'Consolas', ...
-    'FontSize', 9);
+    'FontSize', 9, ...
+    'EdgeColor', [0.75 0.75 0.75], ...
+    'BackgroundColor', [0.98 0.98 0.98]);
 
 set([ax1 ax2 ax3 ax4 ax5], 'FontName', 'Arial', 'FontSize', 10, 'LineWidth', 1.0);
 sgtitle(tl, sprintf('Screen Attention Report | Overall Focus: %.2f%% | Total Time: %.1fs', percentageLooking, totalTime), ...
