@@ -224,18 +224,9 @@ while True:
 cap.release()
 cv2.destroyAllWindows()
 
-import os
-import shutil
-import subprocess
-import sys
-
-
-import os
-import subprocess
-
 # --- Project paths ---
 project_dir = os.path.dirname(os.path.abspath(__file__))  # current script directory
-csv_file = "screen_attention_log.csv"  # relative CSV name
+csv_file = "screen_attention_log.csv"
 csv_path = os.path.join(project_dir, csv_file)
 
 # MATLAB script (without .m)
@@ -244,19 +235,18 @@ analysis_script = "screen_attention_analysis"
 # --- MATLAB executable ---
 matlab_exe = "/Applications/MATLAB_R2025b.app/bin/matlab"
 
-# --- Launch MATLAB ---
+# --- Launch MATLAB with GUI and run script ---
 if os.path.exists(matlab_exe):
     try:
-        # Pass the CSV path as argument to MATLAB script
+        # -desktop opens GUI, -r runs the command
+        # Wrap in try/catch so MATLAB stays open even if there's an error
+        matlab_command = f"try, {analysis_script}('{csv_path}'); catch e, disp(e.message); end;"
         subprocess.Popen(
-            [matlab_exe, "-batch", f"{analysis_script}('{csv_path}')"],
+            [matlab_exe, "-desktop", "-r", matlab_command],
             cwd=project_dir
         )
         print(f"MATLAB launched to run {analysis_script}.m with CSV: {csv_path}")
     except Exception as e:
         print(f"Could not launch MATLAB automatically: {e}")
 else:
-    print(
-        f"MATLAB executable not found at {matlab_exe}. "
-        "Check the path or install MATLAB."
-    )
+    print(f"MATLAB executable not found at {matlab_exe}. Check the path or install MATLAB.")
