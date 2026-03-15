@@ -193,7 +193,11 @@ try:
                 not_focusing_start = current_time
             elif current_time - not_focusing_start >= 1.0 and not signal_sent:
                 try:
-                    print("enabled")
+                    print("------------enabled---------------")
+                    print("----------------------------------")
+                    print("----------------------------------")
+                    print("----------------------------------")
+                    print("----------------------------------")
                     ser.write(b'1\n')  # send 1 after 5 seconds of not focusing
                 except Exception as e:
                     print(f"Serial write failed: {e}")
@@ -202,18 +206,19 @@ try:
         # --- Log everything ---
         with open(LOG_FILE, mode="a", newline="") as f:
             writer = csv.writer(f)
-            writer.writerow([
-                now.strftime("%Y-%m-%d %H:%M:%S.%f"),
-                unix_time,
-                state,
-                gaze_label,
-                looking_at_screen,
-                temperature,
-                distance_val,
-                loud
-            ])
-        print("loud", loud, " temperature ", temperature, "distance ", distance_val)
-        print("looking at screen", looking_at_screen)
+            if (loud is not None):
+                writer.writerow([
+                    now.strftime("%Y-%m-%d %H:%M:%S.%f"),
+                    unix_time,
+                    state,
+                    gaze_label,
+                    looking_at_screen,
+                    temperature,
+                    distance_val,
+                    loud
+                ])
+                print("loud", loud, " temperature ", temperature, "distance ", distance_val)
+                print("looking at screen", looking_at_screen)
 
         cv2.imshow("Eye Monitor", frame)
         if cv2.waitKey(1) & 0xFF == 27:  # ESC
@@ -227,7 +232,9 @@ finally:
 # --- MATLAB POST-PROCESSING ---
 project_dir = os.path.dirname(os.path.abspath(__file__))
 analysis_script_path = os.path.join(project_dir, "screen_attention_analysis.m")
-matlab_exe = shutil.which("matlab")
+default_mac_path = "/Applications/MATLAB_R2025b.app/bin/matlab"
+if os.path.exists(default_mac_path):
+    matlab_exe = default_mac_path
 
 if matlab_exe:
     try:
