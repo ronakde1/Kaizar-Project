@@ -223,16 +223,20 @@ finally:
 
 # --- MATLAB POST-PROCESSING ---
 project_dir = os.path.dirname(os.path.abspath(__file__))
-csv_path = os.path.join(project_dir, LOG_FILE)
-analysis_script = "screen_attention_analysis"
-matlab_exe = "/Applications/MATLAB_R2025b.app/bin/matlab"
+analysis_script_path = os.path.join(project_dir, "screen_attention_analysis.m")
+matlab_exe = shutil.which("matlab")
 
-if os.path.exists(matlab_exe):
+if matlab_exe:
     try:
-        matlab_command = f"try, {analysis_script}('{csv_path}'); catch e, disp(e.message); end;"
+        matlab_project_dir = project_dir.replace("\\", "/")
+        matlab_script_path = analysis_script_path.replace("\\", "/")
+        matlab_command = (
+            f"try, cd('{matlab_project_dir}'); run('{matlab_script_path}'); "
+            "catch e, disp(getReport(e)); end;"
+        )
         subprocess.Popen([matlab_exe, "-desktop", "-r", matlab_command], cwd=project_dir)
-        print(f"MATLAB launched to run {analysis_script}.m with CSV: {csv_path}")
+        print("MATLAB launched and screen_attention_analysis.m is running automatically")
     except Exception as e:
         print(f"Could not launch MATLAB automatically: {e}")
 else:
-    print(f"MATLAB executable not found at {matlab_exe}. Check the path or install MATLAB.")
+    print("MATLAB executable not found in PATH. Add MATLAB to PATH or run screen_attention_analysis.m manually.")
