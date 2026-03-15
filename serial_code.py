@@ -3,7 +3,7 @@ import time
 
 # ------------------- CONFIG -------------------
 # Replace with your Arduino's COM port and baud rate
-arduino_port = "/dev/tty.usbserial-210"  # Linux/Mac
+arduino_port = "/dev/tty.usbserial-10"  # Linux/Mac
 # arduino_port = "COM3"        # Windows example
 baud_rate = 9600
 timeout = 2  # seconds

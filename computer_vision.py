@@ -47,7 +47,7 @@ signal_sent = False        # whether Arduino signal has been sent for current un
 
 
 # --- Arduino serial setup ---
-arduino_port = "/dev/tty.usbserial-210"  # Mac/Linux
+arduino_port = "/dev/tty.usbserial-10"  # Mac/Linux
 baud_rate = 9600
 timeout = 0.01  # non-blocking read
 ser = serial.Serial(arduino_port, baud_rate, timeout=timeout)
@@ -182,6 +182,7 @@ try:
             not_focusing_start = None
             if signal_sent:
                 try:
+                    print("disabled")
                     ser.write(b'0\n')  # send 0 if user refocused
                 except Exception as e:
                     print(f"Serial write failed: {e}")
@@ -189,8 +190,9 @@ try:
         else:
             if not_focusing_start is None:
                 not_focusing_start = current_time
-            elif current_time - not_focusing_start >= 5.0 and not signal_sent:
+            elif current_time - not_focusing_start >= 1.0 and not signal_sent:
                 try:
+                    print("enabled")
                     ser.write(b'1\n')  # send 1 after 5 seconds of not focusing
                 except Exception as e:
                     print(f"Serial write failed: {e}")
