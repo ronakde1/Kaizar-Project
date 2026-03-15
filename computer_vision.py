@@ -74,6 +74,7 @@ with open(LOG_FILE, mode="w", newline="") as f:
         "temperature", "distance", "loud"
     ])
 
+
 # ---------- MAIN LOOP ----------
 try:
     while True:
@@ -211,6 +212,8 @@ try:
                 distance_val,
                 loud
             ])
+        print("loud", loud, " temperature ", temperature, "distance ", distance_val)
+        print("looking at screen", looking_at_screen)
 
         cv2.imshow("Eye Monitor", frame)
         if cv2.waitKey(1) & 0xFF == 27:  # ESC
