@@ -10,7 +10,7 @@ import subprocess
 import serial
 import shutil
 
-# ---------- FUNCTIONS ----------
+LOOKAWAYTIME = 1.0
 def eye_aspect_ratio(eye):
     A = distance.euclidean(eye[1], eye[5])
     B = distance.euclidean(eye[2], eye[4])
@@ -41,20 +41,17 @@ GAZE_RIGHT_THRESHOLD = 0.65
 
 LOG_FILE = "screen_attention_log.csv"
 
-# ---------- ADDITIONAL VARIABLES ----------
-not_focusing_start = None  # time when user stopped focusing
-signal_sent = False        # whether Arduino signal has been sent for current unfocused period
+not_focusing_start = None  
+signal_sent = False 
 
 
-# --- Arduino serial setup ---
-arduino_port = "/dev/tty.usbserial-10"  # Mac/Linux
+arduino_port = "/dev/tty.usbserial-10" 
 baud_rate = 9600
-timeout = 0.01  # non-blocking read
+timeout = 0.01 
 ser = serial.Serial(arduino_port, baud_rate, timeout=timeout)
-time.sleep(2)  # allow Arduino to initialize
+time.sleep(2)  
 arduino_data = []
 
-# ---------- INIT ----------
 detector = dlib.get_frontal_face_detector()
 predictor = dlib.shape_predictor("shape_predictor_68_face_landmarks.dat")
 cap = cv2.VideoCapture(0)
@@ -66,7 +63,6 @@ total_looking_time = 0.0
 display_percent = 0.0
 last_display_update = 0.0
 
-# Start fresh CSV with headers
 with open(LOG_FILE, mode="w", newline="") as f:
     writer = csv.writer(f)
     writer.writerow([
@@ -75,7 +71,6 @@ with open(LOG_FILE, mode="w", newline="") as f:
     ])
 
 
-# ---------- MAIN LOOP ----------
 try:
     while True:
         ret, frame = cap.read()
@@ -127,7 +122,6 @@ try:
             cv2.putText(frame, state, (30, 90),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 165, 255), 2)
 
-        # --- Arduino non-blocking read ---
         temperature = distance_val = loud = None
         while ser.in_waiting:
             line = ser.readline().decode('utf-8').strip()
@@ -139,9 +133,8 @@ try:
                     loud = int(loud_str)
                     arduino_data.append((temperature, distance_val, loud))
                 except ValueError:
-                    pass  # skip malformed lines
+                    pass  
 
-        # --- Update running attention metrics ---
         now = datetime.now()
         unix_time = time.time()
         if last_unix_time is not None:
@@ -156,7 +149,6 @@ try:
             display_percent = live_percent
             last_display_update = unix_time
 
-        # --- Overlay progress bar ---
         live_text = f"Focus so far: {display_percent:.1f}%"
         (text_w, text_h), baseline = cv2.getTextSize(live_text, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)
         text_x = max(10, frame.shape[1] - text_w - 20)
@@ -176,7 +168,6 @@ try:
         prev_looking_at_screen = looking_at_screen
         last_unix_time = unix_time
 
-        # --- Focus signal logic ---
         current_time = time.time()
 
         if looking_at_screen:
@@ -184,21 +175,21 @@ try:
             if signal_sent:
                 try:
                     print("disabled")
-                    ser.write(b'0\n')  # send 0 if user refocused
+                    ser.write(b'0\n') 
                 except Exception as e:
                     print(f"Serial write failed: {e}")
                 signal_sent = False
         else:
             if not_focusing_start is None:
                 not_focusing_start = current_time
-            elif current_time - not_focusing_start >= 1.0 and not signal_sent:
+            elif current_time - not_focusing_start >= LOOKAWAYTIME and not signal_sent:
                 try:
                     print("------------enabled---------------")
                     print("----------------------------------")
                     print("----------------------------------")
                     print("----------------------------------")
                     print("----------------------------------")
-                    ser.write(b'1\n')  # send 1 after 5 seconds of not focusing
+                    ser.write(b'1\n')  
                 except Exception as e:
                     print(f"Serial write failed: {e}")
                 signal_sent = True
@@ -229,7 +220,6 @@ finally:
     ser.close()
     cv2.destroyAllWindows()
 
-# --- MATLAB POST-PROCESSING ---
 project_dir = os.path.dirname(os.path.abspath(__file__))
 analysis_script_path = os.path.join(project_dir, "screen_attention_analysis.m")
 default_mac_path = "/Applications/MATLAB_R2025b.app/bin/matlab"

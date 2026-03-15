@@ -356,7 +356,7 @@ if hasSensorPlots
     end
     xlabel(sensorAx3, 'Elapsed Time (s)', 'FontWeight', 'bold');
     ylabel(sensorAx3, 'Distance from Screen (cm)', 'FontWeight', 'bold');
-    title(sensorAx3, sprintf('Distance from Screen vs Time (max threshold: %d cm)', maxDistanceCm), 'FontWeight', 'bold');
+    title(sensorAx3, sprintf('Distance from Screen vs Time'), 'FontWeight', 'bold');
     grid(sensorAx3, 'on');
 
     set([sensorAx1 sensorAx2 sensorAx3], 'FontName', 'Arial', 'FontSize', 10, 'LineWidth', 1.0);
