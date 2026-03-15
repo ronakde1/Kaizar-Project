@@ -1,0 +1,4 @@
+# Generated reports
+*.csv
+*.png
+*.pdf
