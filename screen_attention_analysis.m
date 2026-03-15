@@ -39,11 +39,36 @@ else
     gazeLabel = repmat("", height(data), 1);
 end
 
+hasTemperature = ismember('temperature', vars);
+hasDistance = ismember('distance', vars);
+hasLoud = ismember('loud', vars);
+
+if hasTemperature
+    temperatureC = double(data.temperature);
+else
+    temperatureC = nan(height(data), 1);
+end
+
+if hasDistance
+    distanceCm = double(data.distance);
+else
+    distanceCm = nan(height(data), 1);
+end
+
+if hasLoud
+    loudFlag = double(data.loud);
+else
+    loudFlag = nan(height(data), 1);
+end
+
 valid = isfinite(t) & isfinite(lookFlag);
 t = t(valid);
 lookFlag = lookFlag(valid);
 stateText = stateText(valid);
 gazeLabel = gazeLabel(valid);
+temperatureC = temperatureC(valid);
+distanceCm = distanceCm(valid);
+loudFlag = loudFlag(valid);
 
 if numel(t) < 2
     error('Not enough valid rows after cleaning NaN/Inf values.');
@@ -53,6 +78,9 @@ end
 lookFlag = lookFlag(order);
 stateText = stateText(order);
 gazeLabel = gazeLabel(order);
+temperatureC = temperatureC(order);
+distanceCm = distanceCm(order);
+loudFlag = loudFlag(order);
 
 dtRaw = diff(t);
 duplicateTimestampCount = sum(dtRaw == 0);
@@ -269,6 +297,70 @@ catch
     fprintf('PDF export skipped on this MATLAB setup. PNG report was saved.\n');
 end
 
+elapsedTimeSec = t - t(1);
+hasSensorPlots = hasTemperature || hasDistance || hasLoud;
+if hasSensorPlots
+    sensorFig = figure( ...
+        'Color', 'w', ...
+        'Name', 'Environment Sensor Report', ...
+        'NumberTitle', 'off', ...
+        'Position', [120 90 1200 820]);
+
+    sensorTl = tiledlayout(sensorFig, 3, 1, 'Padding', 'compact', 'TileSpacing', 'compact');
+
+    sensorAx1 = nexttile(sensorTl, 1);
+    tempValid = isfinite(temperatureC) & temperatureC > -90;
+    if any(tempValid)
+        plot(sensorAx1, elapsedTimeSec(tempValid), temperatureC(tempValid), 'LineWidth', 1.8, 'Color', [0.86 0.27 0.22]);
+    else
+        text(sensorAx1, 0.5, 0.5, 'No temperature data available', 'Units', 'normalized', ...
+            'HorizontalAlignment', 'center', 'VerticalAlignment', 'middle');
+    end
+    xlabel(sensorAx1, 'Elapsed Time (s)', 'FontWeight', 'bold');
+    ylabel(sensorAx1, 'Temperature (°C)', 'FontWeight', 'bold');
+    title(sensorAx1, 'Temperature vs Time', 'FontWeight', 'bold');
+    grid(sensorAx1, 'on');
+
+    sensorAx2 = nexttile(sensorTl, 2);
+    loudValid = isfinite(loudFlag);
+    if any(loudValid)
+        stairs(sensorAx2, elapsedTimeSec(loudValid), loudFlag(loudValid), 'LineWidth', 1.6, 'Color', [0.20 0.47 0.80]);
+        ylim(sensorAx2, [-0.1 1.1]);
+        yticks(sensorAx2, [0 1]);
+        yticklabels(sensorAx2, {'Quiet (0)', 'Loud (1)'});
+    else
+        text(sensorAx2, 0.5, 0.5, 'No loudness data available', 'Units', 'normalized', ...
+            'HorizontalAlignment', 'center', 'VerticalAlignment', 'middle');
+    end
+    xlabel(sensorAx2, 'Elapsed Time (s)', 'FontWeight', 'bold');
+    ylabel(sensorAx2, 'Loudness State', 'FontWeight', 'bold');
+    title(sensorAx2, 'Loudness vs Time', 'FontWeight', 'bold');
+    grid(sensorAx2, 'on');
+
+    sensorAx3 = nexttile(sensorTl, 3);
+    distanceValid = isfinite(distanceCm) & distanceCm >= 0;
+    if any(distanceValid)
+        plot(sensorAx3, elapsedTimeSec(distanceValid), distanceCm(distanceValid), 'LineWidth', 1.8, 'Color', [0.18 0.68 0.40]);
+    else
+        text(sensorAx3, 0.5, 0.5, 'No distance data available', 'Units', 'normalized', ...
+            'HorizontalAlignment', 'center', 'VerticalAlignment', 'middle');
+    end
+    xlabel(sensorAx3, 'Elapsed Time (s)', 'FontWeight', 'bold');
+    ylabel(sensorAx3, 'Distance from Screen (cm)', 'FontWeight', 'bold');
+    title(sensorAx3, 'Distance from Screen vs Time', 'FontWeight', 'bold');
+    grid(sensorAx3, 'on');
+
+    set([sensorAx1 sensorAx2 sensorAx3], 'FontName', 'Arial', 'FontSize', 10, 'LineWidth', 1.0);
+    sgtitle(sensorTl, 'Environment Sensor Report', 'FontWeight', 'bold', 'FontSize', 14);
+
+    exportgraphics(sensorFig, 'environment_sensor_report.png', 'Resolution', 200);
+    try
+        exportgraphics(sensorFig, 'environment_sensor_report.pdf', 'ContentType', 'vector');
+    catch
+        fprintf('Sensor PDF export skipped on this MATLAB setup. PNG sensor report was saved.\n');
+    end
+end
+
 fprintf('Total monitored time: %.2f seconds\n', totalTime);
 fprintf('Time looking at screen: %.2f seconds\n', lookingTime);
 fprintf('Proportion looking at screen: %.4f\n', proportionLooking);
@@ -286,6 +378,9 @@ fprintf('Duplicate timestamps: %d\n', duplicateTimestampCount);
 fprintf('Non-increasing timestamps: %d\n', nonIncreasingTimestampCount);
 fprintf('Abnormal gaps (> %.2fs): %d\n', abnormalGapThreshold, abnormalGapCount);
 fprintf('Saved: screen_attention_summary.csv, screen_attention_minute_trend.csv, screen_attention_report.png\n');
+if hasSensorPlots
+    fprintf('Saved: environment_sensor_report.png\n');
+end
 
 % Local helpers
 function maxDuration = maxRunDuration(flag, dt, targetValue)
