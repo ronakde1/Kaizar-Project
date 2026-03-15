@@ -1,2 +1,0 @@
-session_start,session_end,total_time_sec,looking_time_sec,focus_percent,longest_focus_streak_sec,longest_away_streak_sec,away_events_over_2s,away_events_per_minute,eyes_closed_events_over_1s,duplicate_timestamp_count,non_increasing_timestamp_count,abnormal_gap_count
-15-Mar-2026 11:53:49,15-Mar-2026 11:54:32,43.9287660121918,17.8307328224182,40.5901063040777,1.61072397232056,3.57706809043884,3,4.09754282535603,3,0,0,0
