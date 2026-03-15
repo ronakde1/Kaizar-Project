@@ -300,6 +300,7 @@ end
 elapsedTimeSec = t - t(1);
 hasSensorPlots = hasTemperature || hasDistance || hasLoud;
 if hasSensorPlots
+    maxDistanceCm = 150;
     sensorFig = figure( ...
         'Color', 'w', ...
         'Name', 'Environment Sensor Report', ...
@@ -338,16 +339,24 @@ if hasSensorPlots
     grid(sensorAx2, 'on');
 
     sensorAx3 = nexttile(sensorTl, 3);
-    distanceValid = isfinite(distanceCm) & distanceCm >= 0;
+    distanceFiltered = distanceCm;
+    distanceOutlierMask = isfinite(distanceFiltered) & distanceFiltered > maxDistanceCm;
+    distanceFiltered(distanceOutlierMask) = NaN;
+
+    distanceValid = isfinite(distanceFiltered) & distanceFiltered >= 0;
     if any(distanceValid)
-        plot(sensorAx3, elapsedTimeSec(distanceValid), distanceCm(distanceValid), 'LineWidth', 1.8, 'Color', [0.18 0.68 0.40]);
+        distanceContinuous = fillmissing(distanceFiltered, 'linear', 'SamplePoints', elapsedTimeSec);
+        distanceContinuous = fillmissing(distanceContinuous, 'nearest');
+        distanceContinuous(distanceContinuous < 0) = NaN;
+
+        plot(sensorAx3, elapsedTimeSec, distanceContinuous, 'LineWidth', 1.8, 'Color', [0.18 0.68 0.40]);
     else
         text(sensorAx3, 0.5, 0.5, 'No distance data available', 'Units', 'normalized', ...
             'HorizontalAlignment', 'center', 'VerticalAlignment', 'middle');
     end
     xlabel(sensorAx3, 'Elapsed Time (s)', 'FontWeight', 'bold');
     ylabel(sensorAx3, 'Distance from Screen (cm)', 'FontWeight', 'bold');
-    title(sensorAx3, 'Distance from Screen vs Time', 'FontWeight', 'bold');
+    title(sensorAx3, sprintf('Distance from Screen vs Time (max threshold: %d cm)', maxDistanceCm), 'FontWeight', 'bold');
     grid(sensorAx3, 'on');
 
     set([sensorAx1 sensorAx2 sensorAx3], 'FontName', 'Arial', 'FontSize', 10, 'LineWidth', 1.0);
